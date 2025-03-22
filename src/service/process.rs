@@ -90,3 +90,67 @@ pub fn kill_process(pid: u32) -> io::Result<()> {
         ))
     }
 }
+
+#[cfg(target_os = "windows")]
+pub fn find_processes(process_name: &str) -> io::Result<Vec<u32>> {
+    let output = Command::new("tasklist")
+        .args(&["/FO", "CSV", "/NH"])
+        .output()?;
+    
+    let output_str = String::from_utf8_lossy(&output.stdout);
+    let mut pids = Vec::new();
+    
+    for line in output_str.lines() {
+        let parts: Vec<&str> = line.split(',').collect();
+        if parts.len() >= 2 {
+            let name = parts[0].trim_matches('"');
+            if name.to_lowercase().contains(&process_name.to_lowercase()) {
+                if let Some(pid_str) = parts[1].trim_matches('"').split_whitespace().next() {
+                    if let Ok(pid) = pid_str.parse::<u32>() {
+                        pids.push(pid);
+                    }
+                }
+            }
+        }
+    }
+    
+    Ok(pids)
+}
+
+#[cfg(target_os = "linux")]
+pub fn find_processes(process_name: &str) -> io::Result<Vec<u32>> {
+    let output = Command::new("pgrep")
+        .arg("-f")
+        .arg(process_name)
+        .output()?;
+    
+    let output_str = String::from_utf8_lossy(&output.stdout);
+    let mut pids = Vec::new();
+    
+    for line in output_str.lines() {
+        if let Ok(pid) = line.trim().parse::<u32>() {
+            pids.push(pid);
+        }
+    }
+    
+    Ok(pids)
+}
+
+#[cfg(target_os = "macos")]
+pub fn find_processes(process_name: &str) -> io::Result<Vec<u32>> {
+    let output = Command::new("pgrep")
+        .arg("-f")
+        .arg(process_name)
+        .output()?;
+    
+    let output_str = String::from_utf8_lossy(&output.stdout);
+    let mut pids = Vec::new();
+    
+    for line in output_str.lines() {
+        if let Ok(pid) = line.trim().parse::<u32>() {
+            pids.push(pid);
+        }
+    }
+    
+    Ok(pids)
+}

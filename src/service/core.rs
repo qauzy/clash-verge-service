@@ -121,6 +121,9 @@ impl CoreManager {
             }
         }
 
+        // 检测并停止系统中其他可能运行的verge-mihomo进程
+        self.stop_other_mihomo_processes()?;
+
         {
             // Get runtime config
             let config = self
@@ -210,6 +213,41 @@ impl CoreManager {
             .unwrap()
             .is_running
             .store(false, Ordering::Relaxed);
+        Ok(())
+    }
+
+    // 检测并停止其他verge-mihomo进程
+    pub fn stop_other_mihomo_processes(&self) -> Result<()> {
+        // 获取当前进程的PID
+        let current_pid = std::process::id();
+        let tracked_mihomo_pid = self
+            .mihomo_status
+            .inner
+            .lock()
+            .unwrap()
+            .running_pid
+            .load(Ordering::Relaxed) as u32;
+        
+        // 查找所有verge-mihomo进程
+        match process::find_processes("verge-mihomo") {
+            Ok(pids) => {
+                for pid in pids {
+                    // 排除当前进程和已经追踪的进程
+                    if pid != current_pid && (tracked_mihomo_pid <= 0 || pid != tracked_mihomo_pid) {
+                        println!("Found other verge-mihomo process with PID: {}, stopping it", pid);
+                        if let Err(e) = process::kill_process(pid) {
+                            eprintln!("Failed to kill verge-mihomo process {}: {}", pid, e);
+                        } else {
+                            println!("Successfully stopped verge-mihomo process {}", pid);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Error finding verge-mihomo processes: {}", e);
+            }
+        }
+        
         Ok(())
     }
 
@@ -313,6 +351,10 @@ impl CoreManager {
         {
             eprintln!("Error killing clash process: {}", e);
         }
+
+        // 同时停止mihomo进程和其他verge-mihomo进程
+        let _ = self.stop_mihomo();
+        let _ = self.stop_other_mihomo_processes();
 
         println!("Clash process {} stopped successfully", clash_pid);
         Ok(())
