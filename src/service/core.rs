@@ -228,20 +228,28 @@ impl CoreManager {
             .running_pid
             .load(Ordering::Relaxed) as u32;
         
-        // 查找所有verge-mihomo进程
         match process::find_processes("verge-mihomo") {
             Ok(pids) => {
-                for pid in pids {
-                    // 排除当前进程和已经追踪的进程
-                    if pid != current_pid && (tracked_mihomo_pid <= 0 || pid != tracked_mihomo_pid) {
+                // 直接在迭代过程中过滤和终止
+                let kill_count = pids.into_iter()
+                    .filter(|&pid| pid != current_pid && (tracked_mihomo_pid <= 0 || pid != tracked_mihomo_pid))
+                    .map(|pid| {
                         println!("Found other verge-mihomo process with PID: {}, stopping it", pid);
-                        if let Err(e) = process::kill_process(pid) {
-                            eprintln!("Failed to kill verge-mihomo process {}: {}", pid, e);
-                        } else {
-                            println!("Successfully stopped verge-mihomo process {}", pid);
+                        match process::kill_process(pid) {
+                            Ok(_) => {
+                                println!("Successfully stopped verge-mihomo process {}", pid);
+                                true
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to kill verge-mihomo process {}: {}", pid, e);
+                                false
+                            }
                         }
-                    }
-                }
+                    })
+                    .filter(|&success| success)
+                    .count();
+                    
+                println!("Successfully stopped {} verge-mihomo processes", kill_count);
             }
             Err(e) => {
                 eprintln!("Error finding verge-mihomo processes: {}", e);
