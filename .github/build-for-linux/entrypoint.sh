@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# 显示当前 Rust 版本
+rustc --version
+cargo --version
+
 rustup target add "$INPUT_TARGET"
 if [ "$INPUT_TARGET" = "x86_64-unknown-linux-gnu" ]; then
     apt-get update
