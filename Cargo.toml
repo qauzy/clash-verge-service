@@ -30,7 +30,6 @@ windows-service = "0.8.0"
 tokio = { version = "1.44.0", features = ["full"] }
 serde = { version = "1.0.217", features = ["derive"] }
 sysinfo = "0.33.1"
-libc = "0.2.171"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 openssl = { version = "0.10.71", features = ["vendored"] }

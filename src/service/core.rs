@@ -156,6 +156,16 @@ impl CoreManager {
             let pid = process::spawn_process(bin_path, &args, log)?;
             println!("Mihomo started with PID: {}", pid);
 
+            // 等待短暂时间确保进程启动
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            
+            // 检查进程是否真正启动
+            if let Ok(pids) = process::find_processes("verge-mihomo") {
+                if !pids.contains(&pid) {
+                    return Err(anyhow!("Mihomo进程启动后立即终止，请检查配置和日志"));
+                }
+            }
+
             // Update mihomo status
             self.mihomo_status
                 .inner
@@ -195,6 +205,15 @@ impl CoreManager {
         match result {
             Ok(_) => {
                 println!("Mihomo process {} stopped successfully", mihomo_pid);
+                
+                // 额外验证进程是否真的终止了
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                if let Ok(pids) = process::find_processes("verge-mihomo") {
+                    if pids.contains(&(mihomo_pid as u32)) {
+                        eprintln!("Mihomo process {} still running after kill attempt, trying again", mihomo_pid);
+                        let _ = super::process::kill_process(mihomo_pid as u32);
+                    }
+                }
             }
             Err(e) => {
                 eprintln!("Error killing mihomo process: {}", e);
@@ -372,18 +391,3 @@ impl CoreManager {
 // 全局静态的 CoreManager 实例
 pub static COREMANAGER: Lazy<Arc<Mutex<CoreManager>>> =
     Lazy::new(|| Arc::new(Mutex::new(CoreManager::new())));
-
-#[cfg(target_os = "linux")]
-pub fn init_signal_handler() {
-    unsafe {
-        let mut sa: libc::sigaction = std::mem::zeroed();
-        // 使用 SIG_DFL 默认处理函数，让操作系统自动回收子进程
-        sa.sa_sigaction = libc::SIG_DFL as usize;
-        libc::sigemptyset(&mut sa.sa_mask);
-        sa.sa_flags = libc::SA_NOCLDWAIT; // 自动回收子进程，不产生僵尸进程
-        
-        if libc::sigaction(libc::SIGCHLD, &sa, std::ptr::null_mut()) == -1 {
-            eprintln!("无法设置 SIGCHLD 处理函数");
-        }
-    }
-}

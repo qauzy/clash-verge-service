@@ -143,7 +143,6 @@ version = "1.0.4"
 dependencies = [
  "anyhow",
  "interfaces",
- "libc",
  "log",
  "log4rs",
  "once_cell",
