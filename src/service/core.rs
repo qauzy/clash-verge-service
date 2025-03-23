@@ -373,42 +373,17 @@ impl CoreManager {
 pub static COREMANAGER: Lazy<Arc<Mutex<CoreManager>>> =
     Lazy::new(|| Arc::new(Mutex::new(CoreManager::new())));
 
-// 在服务启动时调用这个函数
 #[cfg(target_os = "linux")]
 pub fn init_signal_handler() {
     unsafe {
-        // 使用 libc 的 sa_handler 字段设置信号处理函数
         let mut sa: libc::sigaction = std::mem::zeroed();
-        sa.sa_sigaction = handle_sigchld as usize;
+        // 使用 SIG_DFL 默认处理函数，让操作系统自动回收子进程
+        sa.sa_sigaction = libc::SIG_DFL as usize;
         libc::sigemptyset(&mut sa.sa_mask);
-        sa.sa_flags = libc::SA_RESTART | libc::SA_NOCLDSTOP;
+        sa.sa_flags = libc::SA_NOCLDWAIT; // 自动回收子进程，不产生僵尸进程
         
         if libc::sigaction(libc::SIGCHLD, &sa, std::ptr::null_mut()) == -1 {
             eprintln!("无法设置 SIGCHLD 处理函数");
-        }
-    }
-}
-
-#[cfg(target_os = "linux")]
-extern "C" fn handle_sigchld(_: libc::c_int) {
-    unsafe {
-        let mut status: libc::c_int = 0;
-        let mut pid = libc::waitpid(-1, &mut status, libc::WNOHANG);
-        
-        // 循环处理所有已终止的子进程
-        while pid > 0 {
-            // 获取 CoreManager 实例
-            if let Ok(manager) = COREMANAGER.lock() {
-                // 检查是否是 mihomo 进程
-                let mihomo_pid = manager.mihomo_status.inner.lock().unwrap().running_pid.load(std::sync::atomic::Ordering::Relaxed);
-                if pid == mihomo_pid as libc::pid_t {
-                    // 更新 mihomo 状态
-                    manager.mihomo_status.inner.lock().unwrap().is_running.store(false, std::sync::atomic::Ordering::Relaxed);
-                    manager.mihomo_status.inner.lock().unwrap().running_pid.store(-1, std::sync::atomic::Ordering::Relaxed);
-                    println!("Mihomo process {} terminated", pid);
-                }
-            }
-            pid = libc::waitpid(-1, &mut status, libc::WNOHANG);
         }
     }
 }
