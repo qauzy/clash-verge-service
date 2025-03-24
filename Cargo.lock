@@ -139,10 +139,11 @@ dependencies = [
 
 [[package]]
 name = "clash-verge-service"
-version = "1.0.4"
+version = "1.0.5"
 dependencies = [
  "anyhow",
  "interfaces",
+ "libc",
  "log",
  "log4rs",
  "once_cell",
