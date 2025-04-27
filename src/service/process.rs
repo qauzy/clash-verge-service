@@ -5,7 +5,60 @@ use std::{
     process::{Command, Stdio},
 };
 
+static TARGET_MIHOMO: &str = "verge-mihomo";
+static TARGET_MIHOMO_ALPHA: &str = "verge-mihomo-alpha";
+
+pub mod safety_path {
+    use super::{TARGET_MIHOMO, TARGET_MIHOMO_ALPHA};
+
+    #[cfg(not(target_os = "windows"))]
+    pub fn is_symlink(path: &str) -> bool {
+        if let Ok(metadata) = std::fs::symlink_metadata(path) {
+            metadata.file_type().is_symlink()
+        } else {
+            false
+        }
+    }
+    #[cfg(target_os = "windows")]
+    pub fn is_symlink(path: &str) -> bool {
+        false
+    }
+
+    pub fn is_verge_mihomo_path(path: &str) -> bool {
+        let binary_name = std::path::Path::new(path)
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or(path);
+        let is_mihomo_binary = binary_name == TARGET_MIHOMO;
+        let is_mihomo_alpha_binary = binary_name == TARGET_MIHOMO_ALPHA;
+        is_mihomo_binary || is_mihomo_alpha_binary
+    }
+
+    pub fn is_path_safe(path: &str) -> bool {
+        let is_safe = !is_symlink(path) && is_verge_mihomo_path(path);
+        println!("[Path Check] Path is safe: {}", is_safe);
+        is_safe
+    }
+}
+
+pub mod safety_args {
+    use super::{TARGET_MIHOMO, TARGET_MIHOMO_ALPHA};
+
+    pub fn is_verge_mihomo_process_name(process_name: &str) -> bool {
+        let is_verge_mihomo = process_name == TARGET_MIHOMO;
+        let is_verge_mihomo_alpha = process_name == TARGET_MIHOMO_ALPHA;
+        is_verge_mihomo || is_verge_mihomo_alpha
+    }
+}
+
 pub fn spawn_process(command: &str, args: &[&str], mut log: std::fs::File) -> io::Result<u32> {
+    if !safety_path::is_path_safe(command) {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            format!("Unsafe command path: {}", command),
+        ));
+    }
+
     // Log the command being executed
     let _ = writeln!(log, "Spawning process: {} {}", command, args.join(" "));
     log.flush()?;
@@ -42,6 +95,13 @@ pub fn spawn_process(command: &str, args: &[&str], mut log: std::fs::File) -> io
 }
 
 pub fn spawn_process_debug(command: &str, args: &[&str]) -> io::Result<(u32, String, i32)> {
+    if !safety_path::is_path_safe(command) {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            format!("Unsafe command path: {}", command),
+        ));
+    }
+
     let child = Command::new(command)
         .args(args)
         .stdout(Stdio::piped())
@@ -93,13 +153,20 @@ pub fn kill_process(pid: u32) -> io::Result<()> {
 
 #[cfg(target_os = "windows")]
 pub fn find_processes(process_name: &str) -> io::Result<Vec<u32>> {
+    if !safety_args::is_verge_mihomo_process_name(process_name) {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            format!("Unsafe process name: {}", process_name),
+        ));
+    }
+
     let output = Command::new("tasklist")
         .args(&["/FO", "CSV", "/NH"])
         .output()?;
-    
+
     let output_str = String::from_utf8_lossy(&output.stdout);
     let mut pids = Vec::new();
-    
+
     for line in output_str.lines() {
         let parts: Vec<&str> = line.split(',').collect();
         if parts.len() >= 2 {
@@ -113,44 +180,52 @@ pub fn find_processes(process_name: &str) -> io::Result<Vec<u32>> {
             }
         }
     }
-    
+
     Ok(pids)
 }
 
 #[cfg(target_os = "linux")]
 pub fn find_processes(process_name: &str) -> io::Result<Vec<u32>> {
-    let output = Command::new("pgrep")
-        .arg("-f")
-        .arg(process_name)
-        .output()?;
-    
+    if !safety_args::is_verge_mihomo_process_name(process_name) {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            format!("Unsafe process name: {}", process_name),
+        ));
+    }
+
+    let output = Command::new("pgrep").arg("-f").arg(process_name).output()?;
+
     let output_str = String::from_utf8_lossy(&output.stdout);
     let mut pids = Vec::new();
-    
+
     for line in output_str.lines() {
         if let Ok(pid) = line.trim().parse::<u32>() {
             pids.push(pid);
         }
     }
-    
+
     Ok(pids)
 }
 
 #[cfg(target_os = "macos")]
 pub fn find_processes(process_name: &str) -> io::Result<Vec<u32>> {
-    let output = Command::new("pgrep")
-        .arg("-f")
-        .arg(process_name)
-        .output()?;
-    
+    if !safety_args::is_verge_mihomo_process_name(process_name) {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            format!("Unsafe process name: {}", process_name),
+        ));
+    }
+
+    let output = Command::new("pgrep").arg("-f").arg(process_name).output()?;
+
     let output_str = String::from_utf8_lossy(&output.stdout);
     let mut pids = Vec::new();
-    
+
     for line in output_str.lines() {
         if let Ok(pid) = line.trim().parse::<u32>() {
             pids.push(pid);
         }
     }
-    
+
     Ok(pids)
 }
