@@ -81,7 +81,7 @@ pub async fn run_service() -> anyhow::Result<()> {
 
     let api_stop_clash = warp::post()
         .and(warp::path("stop_clash"))
-        .map(move || wrap_response!(COREMANAGER.lock().unwrap().stop_mihomo()));
+        .map(move || wrap_response!(COREMANAGER.lock().unwrap().stop_mat()));
 
     let api_get_clash = warp::get()
         .and(warp::path("get_clash"))

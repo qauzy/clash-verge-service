@@ -28,14 +28,14 @@ pub struct ClashStatus {
 }
 
 #[derive(Default, Debug)]
-pub struct MihomoStatus {
+pub struct MatStatus {
     pub is_running: Arc<AtomicBool>,
     pub running_pid: Arc<AtomicI32>,
 }
 
 pub struct CoreManager {
     pub clash_status: StatusInner<ClashStatus>,
-    pub mihomo_status: StatusInner<MihomoStatus>,
+    pub mat_status: StatusInner<MatStatus>,
 }
 
 pub struct StatusInner<T> {

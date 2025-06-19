@@ -1,5 +1,5 @@
 use super::{
-    data::{ClashStatus, CoreManager, MihomoStatus, StartBody, StatusInner},
+    data::{ClashStatus, CoreManager, MatStatus, StartBody, StatusInner},
     process,
 };
 use anyhow::{anyhow, Context, Result};
@@ -13,7 +13,7 @@ impl CoreManager {
     pub fn new() -> Self {
         CoreManager {
             clash_status: StatusInner::new(ClashStatus::default()),
-            mihomo_status: StatusInner::new(MihomoStatus::default()),
+            mat_status: StatusInner::new(MatStatus::default()),
         }
     }
 
@@ -95,34 +95,34 @@ impl CoreManager {
         Ok(runtime_config.as_ref().unwrap().clone())
     }
 
-    pub fn start_mihomo(&self) -> Result<()> {
-        println!("Starting mihomo with config");
+    pub fn start_mat(&self) -> Result<()> {
+        println!("Starting mat with config");
 
         {
-            let is_running_mihomo = self
-                .mihomo_status
+            let is_running_mat = self
+                .mat_status
                 .inner
                 .lock()
                 .unwrap()
                 .is_running
                 .load(Ordering::Relaxed);
-            let mihomo_running_pid = self
-                .mihomo_status
+            let mat_running_pid = self
+                .mat_status
                 .inner
                 .lock()
                 .unwrap()
                 .running_pid
                 .load(Ordering::Relaxed);
 
-            if is_running_mihomo && mihomo_running_pid > 0 {
-                println!("Mihomo is already running, stopping it first");
-                let _ = self.stop_mihomo();
-                println!("Mihomo stopped successfully");
+            if is_running_mat && mat_running_pid > 0 {
+                println!("Mat is already running, stopping it first");
+                let _ = self.stop_mat();
+                println!("Mat stopped successfully");
             }
         }
 
-        // 检测并停止系统中其他可能运行的verge-mihomo进程
-        self.stop_other_mihomo_processes()?;
+        // 检测并停止系统中其他可能运行的verge-mat进程
+        self.stop_other_mat_processes()?;
 
         {
             // Get runtime config
@@ -144,7 +144,7 @@ impl CoreManager {
             let args = vec!["-d", config_dir, "-f", config_file];
 
             println!(
-                "Starting mihomo with bin_path: {}, config_dir: {}, config_file: {}, log_file: {}",
+                "Starting mat with bin_path: {}, config_dir: {}, config_file: {}, log_file: {}",
                 bin_path, config_dir, config_file, log_file
             );
 
@@ -154,60 +154,60 @@ impl CoreManager {
 
             // Spawn process
             let pid = process::spawn_process(bin_path, &args, log)?;
-            println!("Mihomo started with PID: {}", pid);
+            println!("Mat started with PID: {}", pid);
 
-            // Update mihomo status
-            self.mihomo_status
+            // Update mat status
+            self.mat_status
                 .inner
                 .lock()
                 .unwrap()
                 .running_pid
                 .store(pid as i32, Ordering::Relaxed);
-            self.mihomo_status
+            self.mat_status
                 .inner
                 .lock()
                 .unwrap()
                 .is_running
                 .store(true, Ordering::Relaxed);
-            println!("Mihomo started successfully with PID: {}", pid);
+            println!("Mat started successfully with PID: {}", pid);
         }
 
         Ok(())
     }
 
-    pub fn stop_mihomo(&self) -> Result<()> {
-        let mihomo_pid = self
-            .mihomo_status
+    pub fn stop_mat(&self) -> Result<()> {
+        let mat_pid = self
+            .mat_status
             .inner
             .lock()
             .unwrap()
             .running_pid
             .load(Ordering::Relaxed);
-        if mihomo_pid <= 0 {
-            println!("No running mihomo process found");
+        if mat_pid <= 0 {
+            println!("No running mat process found");
             return Ok(());
         }
-        println!("Stopping mihomo process {}", mihomo_pid);
+        println!("Stopping mat process {}", mat_pid);
 
-        let result = super::process::kill_process(mihomo_pid as u32)
-            .with_context(|| format!("Failed to kill mihomo process with PID: {}", mihomo_pid));
+        let result = super::process::kill_process(mat_pid as u32)
+            .with_context(|| format!("Failed to kill mat process with PID: {}", mat_pid));
 
         match result {
             Ok(_) => {
-                println!("Mihomo process {} stopped successfully", mihomo_pid);
+                println!("Mat process {} stopped successfully", mat_pid);
             }
             Err(e) => {
-                eprintln!("Error killing mihomo process: {}", e);
+                eprintln!("Error killing mat process: {}", e);
             }
         }
 
-        self.mihomo_status
+        self.mat_status
             .inner
             .lock()
             .unwrap()
             .running_pid
             .store(-1, Ordering::Relaxed);
-        self.mihomo_status
+        self.mat_status
             .inner
             .lock()
             .unwrap()
@@ -216,32 +216,32 @@ impl CoreManager {
         Ok(())
     }
 
-    // 检测并停止其他verge-mihomo进程
-    pub fn stop_other_mihomo_processes(&self) -> Result<()> {
+    // 检测并停止其他verge-mat进程
+    pub fn stop_other_mat_processes(&self) -> Result<()> {
         // 获取当前进程的PID
         let current_pid = std::process::id();
-        let tracked_mihomo_pid = self
-            .mihomo_status
+        let tracked_mat_pid = self
+            .mat_status
             .inner
             .lock()
             .unwrap()
             .running_pid
             .load(Ordering::Relaxed) as u32;
         
-        match process::find_processes("verge-mihomo") {
+        match process::find_processes("verge-mat") {
             Ok(pids) => {
                 // 直接在迭代过程中过滤和终止
                 let kill_count = pids.into_iter()
-                    .filter(|&pid| pid != current_pid && (tracked_mihomo_pid <= 0 || pid != tracked_mihomo_pid))
+                    .filter(|&pid| pid != current_pid && (tracked_mat_pid <= 0 || pid != tracked_mat_pid))
                     .map(|pid| {
-                        println!("Found other verge-mihomo process with PID: {}, stopping it", pid);
+                        println!("Found other verge-mat process with PID: {}, stopping it", pid);
                         match process::kill_process(pid) {
                             Ok(_) => {
-                                println!("Successfully stopped verge-mihomo process {}", pid);
+                                println!("Successfully stopped verge-mat process {}", pid);
                                 true
                             }
                             Err(e) => {
-                                eprintln!("Failed to kill verge-mihomo process {}: {}", pid, e);
+                                eprintln!("Failed to kill verge-mat process {}: {}", pid, e);
                                 false
                             }
                         }
@@ -249,10 +249,10 @@ impl CoreManager {
                     .filter(|&success| success)
                     .count();
                     
-                println!("Successfully stopped {} verge-mihomo processes", kill_count);
+                println!("Successfully stopped {} verge-mat processes", kill_count);
             }
             Err(e) => {
-                eprintln!("Error finding verge-mihomo processes: {}", e);
+                eprintln!("Error finding verge-mat processes: {}", e);
             }
         }
         
@@ -309,30 +309,30 @@ impl CoreManager {
         }
 
         {
-            // Check mihomo & stop if needed
-            println!("Checking if mihomo is running before start clash");
-            let is_mihomo_running = self
-                .mihomo_status
+            // Check mat & stop if needed
+            println!("Checking if mat is running before start clash");
+            let is_mat_running = self
+                .mat_status
                 .inner
                 .lock()
                 .unwrap()
                 .is_running
                 .load(Ordering::Relaxed);
-            let mihomo_running_pid = self
-                .mihomo_status
+            let mat_running_pid = self
+                .mat_status
                 .inner
                 .lock()
                 .unwrap()
                 .running_pid
                 .load(Ordering::Relaxed);
 
-            if is_mihomo_running && mihomo_running_pid > 0 {
-                println!("Mihomo is running, stopping it first");
-                let _ = self.stop_mihomo();
-                let _ = self.start_mihomo();
+            if is_mat_running && mat_running_pid > 0 {
+                println!("Mat is running, stopping it first");
+                let _ = self.stop_mat();
+                let _ = self.start_mat();
             } else {
-                println!("Mihomo is not running, starting it");
-                let _ = self.start_mihomo();
+                println!("Mat is not running, starting it");
+                let _ = self.start_mat();
             }
         }
 
@@ -360,9 +360,9 @@ impl CoreManager {
             eprintln!("Error killing clash process: {}", e);
         }
 
-        // 同时停止mihomo进程和其他verge-mihomo进程
-        let _ = self.stop_mihomo();
-        let _ = self.stop_other_mihomo_processes();
+        // 同时停止mat进程和其他verge-mat进程
+        let _ = self.stop_mat();
+        let _ = self.stop_other_mat_processes();
 
         println!("Clash process {} stopped successfully", clash_pid);
         Ok(())
