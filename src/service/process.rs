@@ -7,9 +7,10 @@ use std::{
 
 static TARGET_MAT: &str = "verge-mat";
 static TARGET_MAT_ALPHA: &str = "verge-mat-alpha";
-
+static TARGET_MAT_EXE: &str = "verge-mat.exe";
+static TARGET_MAT_ALPHA_EXE: &str = "verge-mat-alpha.exe";
 pub mod safety_path {
-    use super::{TARGET_MAT, TARGET_MAT_ALPHA};
+    use super::{TARGET_MAT,TARGET_MAT_EXE, TARGET_MAT_ALPHA,TARGET_MAT_ALPHA_EXE};
 
     #[cfg(not(target_os = "windows"))]
     pub fn is_symlink(path: &str) -> bool {
@@ -29,8 +30,8 @@ pub mod safety_path {
             .file_name()
             .and_then(|name| name.to_str())
             .unwrap_or(path);
-        let is_mat_binary = binary_name == TARGET_MAT;
-        let is_mat_alpha_binary = binary_name == TARGET_MAT_ALPHA;
+        let is_mat_binary = binary_name == TARGET_MAT || binary_name == TARGET_MAT_EXE;
+        let is_mat_alpha_binary = binary_name == TARGET_MAT_ALPHA || binary_name == TARGET_MAT_ALPHA_EXE;
         is_mat_binary || is_mat_alpha_binary
     }
 
@@ -42,11 +43,11 @@ pub mod safety_path {
 }
 
 pub mod safety_args {
-    use super::{TARGET_MAT, TARGET_MAT_ALPHA};
+    use super::{TARGET_MAT,TARGET_MAT_EXE, TARGET_MAT_ALPHA,TARGET_MAT_ALPHA_EXE};
 
     pub fn is_verge_mat_process_name(process_name: &str) -> bool {
-        let is_verge_mat = process_name == TARGET_MAT;
-        let is_verge_mat_alpha = process_name == TARGET_MAT_ALPHA;
+        let is_verge_mat = process_name == TARGET_MAT || process_name == TARGET_MAT_EXE;
+        let is_verge_mat_alpha = process_name == TARGET_MAT_ALPHA || process_name == TARGET_MAT_ALPHA_EXE;
         is_verge_mat || is_verge_mat_alpha
     }
 }
