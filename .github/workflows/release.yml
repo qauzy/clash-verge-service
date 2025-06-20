@@ -59,48 +59,48 @@ jobs:
           tag_name: ${{ matrix.target }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: CodeSign
-        if: matrix.os == 'macos-latest'
-        run: |
-          # 设置证书
-          echo "${{ secrets.APPLE_CERTIFICATE }}" | base64 --decode > cert.p12
-          security create-keychain -p github-actions github-actions.keychain
-          security default-keychain -s github-actions.keychain
-          security unlock-keychain -p github-actions github-actions.keychain
-          security import cert.p12 -k github-actions.keychain -P "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k github-actions github-actions.keychain
-
-
-          # 对服务程序进行签名
-          codesign --force \
-            -s "${{ secrets.APPLE_SIGNING_IDENTITY }}" \
-            --keychain github-actions.keychain \
-            --options runtime \
-            --timestamp \
-            --identifier "io.github.clash-verge-rev.clash-verge-rev.service" \
-            target/${{ matrix.target }}/release/clash-verge-service
-
-          # 对安装程序进行签名
-          codesign --force \
-            -s "${{ secrets.APPLE_SIGNING_IDENTITY }}" \
-            --keychain github-actions.keychain \
-            --options runtime \
-            --timestamp \
-            --identifier "io.github.clash-verge-rev.clash-verge-rev.service.install" \
-            target/${{ matrix.target }}/release/install-service
-
-          # 对卸载程序进行签名
-          codesign --force \
-            -s "${{ secrets.APPLE_SIGNING_IDENTITY }}" \
-            --keychain github-actions.keychain \
-            --options runtime \
-            --timestamp \
-            --identifier "io.github.clash-verge-rev.clash-verge-rev.service.uninstall" \
-            target/${{ matrix.target }}/release/uninstall-service
-
-          # 验证签名
-          codesign -dvv target/${{ matrix.target }}/release/clash-verge-service
-          codesign -d --entitlements :- target/${{ matrix.target }}/release/clash-verge-service
+#      - name: CodeSign
+#        if: matrix.os == 'macos-latest'
+#        run: |
+#          # 设置证书
+#          echo "${{ secrets.APPLE_CERTIFICATE }}" | base64 --decode > cert.p12
+#          security create-keychain -p github-actions github-actions.keychain
+#          security default-keychain -s github-actions.keychain
+#          security unlock-keychain -p github-actions github-actions.keychain
+#          security import cert.p12 -k github-actions.keychain -P "${{ secrets.APPLE_CERTIFICATE_PASSWORD }}" -T /usr/bin/codesign
+#          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k github-actions github-actions.keychain
+#
+#
+#          # 对服务程序进行签名
+#          codesign --force \
+#            -s "${{ secrets.APPLE_SIGNING_IDENTITY }}" \
+#            --keychain github-actions.keychain \
+#            --options runtime \
+#            --timestamp \
+#            --identifier "io.github.clash-verge-rev.clash-verge-rev.service" \
+#            target/${{ matrix.target }}/release/clash-verge-service
+#
+#          # 对安装程序进行签名
+#          codesign --force \
+#            -s "${{ secrets.APPLE_SIGNING_IDENTITY }}" \
+#            --keychain github-actions.keychain \
+#            --options runtime \
+#            --timestamp \
+#            --identifier "io.github.clash-verge-rev.clash-verge-rev.service.install" \
+#            target/${{ matrix.target }}/release/install-service
+#
+#          # 对卸载程序进行签名
+#          codesign --force \
+#            -s "${{ secrets.APPLE_SIGNING_IDENTITY }}" \
+#            --keychain github-actions.keychain \
+#            --options runtime \
+#            --timestamp \
+#            --identifier "io.github.clash-verge-rev.clash-verge-rev.service.uninstall" \
+#            target/${{ matrix.target }}/release/uninstall-service
+#
+#          # 验证签名
+#          codesign -dvv target/${{ matrix.target }}/release/clash-verge-service
+#          codesign -d --entitlements :- target/${{ matrix.target }}/release/clash-verge-service
 
       - name: Release
         if: matrix.os == 'windows-latest'
